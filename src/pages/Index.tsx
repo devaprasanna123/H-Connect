@@ -11,7 +11,7 @@ export default function Index() {
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-2">
             <Heart className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold">CareConnect</span>
+            <span className="text-xl font-bold">H Connect</span>
           </div>
           <Link to="/auth">
             <Button>Get Started <ArrowRight className="ml-1 h-4 w-4" /></Button>
@@ -77,7 +77,7 @@ export default function Index() {
       <footer className="border-t bg-card py-6">
         <div className="container mx-auto flex items-center justify-center gap-2 px-4 text-sm text-muted-foreground">
           <Heart className="h-4 w-4 text-primary" />
-          <span>CareConnect — Multi-Hospital Healthcare Platform</span>
+          <span>H Connect — Multi-Hospital Healthcare Platform</span>
         </div>
       </footer>
     </div>

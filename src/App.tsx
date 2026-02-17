@@ -20,6 +20,7 @@ import PatientProfile from "./pages/patient/Profile";
 import DoctorDashboard from "./pages/doctor/Dashboard";
 import Consultation from "./pages/doctor/Consultation";
 import PatientRecords from "./pages/doctor/PatientRecords";
+import HospitalRequests from "./pages/doctor/HospitalRequests";
 
 // Admin pages
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/doctor" element={<ProtectedRoute allowedRoles={["doctor"]}><DoctorDashboard /></ProtectedRoute>} />
             <Route path="/doctor/consult" element={<ProtectedRoute allowedRoles={["doctor"]}><Consultation /></ProtectedRoute>} />
             <Route path="/doctor/records" element={<ProtectedRoute allowedRoles={["doctor"]}><PatientRecords /></ProtectedRoute>} />
+            <Route path="/doctor/requests" element={<ProtectedRoute allowedRoles={["doctor"]}><HospitalRequests /></ProtectedRoute>} />
 
             {/* Admin Routes */}
             <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />

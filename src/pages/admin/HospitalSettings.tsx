@@ -42,14 +42,48 @@ export default function HospitalSettings() {
   const handleSave = async () => {
     setSaving(true);
     if (hospital) {
-      await supabase.from("hospitals").update({ name, address, city, phone, email }).eq("id", hospital.id);
+      const { error } = await supabase.from("hospitals").update({ name, address, city, phone, email }).eq("id", hospital.id);
+      if (error) {
+        toast.error(error.message);
+        setSaving(false);
+        return;
+      }
+
+      // Refetch hospital data to refresh the UI
+      const { data: updatedHosp } = await supabase.from("hospitals").select("*").eq("id", hospital.id).maybeSingle();
+      if (updatedHosp) {
+        setHospital(updatedHosp);
+        setName(updatedHosp.name);
+        setAddress(updatedHosp.address);
+        setCity(updatedHosp.city);
+        setPhone(updatedHosp.phone || "");
+        setEmail(updatedHosp.email || "");
+      }
       toast.success("Hospital updated!");
     } else {
       // Create new hospital and assign it
       const { data: newHosp, error } = await supabase.from("hospitals").insert({ name, address, city, phone, email }).select().single();
       if (error) { toast.error(error.message); setSaving(false); return; }
-      await supabase.from("doctors").update({ hospital_id: newHosp.id }).eq("user_id", user!.id);
+
+      // Link user to hospital. Check if doctor record exists first.
+      const { data: existingDoc } = await supabase.from("doctors").select("id").eq("user_id", user!.id).maybeSingle();
+
+      if (existingDoc) {
+        await supabase.from("doctors").update({ hospital_id: newHosp.id }).eq("user_id", user!.id);
+      } else {
+        await supabase.from("doctors").insert({
+          user_id: user!.id,
+          hospital_id: newHosp.id,
+          specialty: "Hospital Admin"
+        });
+      }
+
       setHospital(newHosp);
+      setName(newHosp.name);
+      setAddress(newHosp.address);
+      setCity(newHosp.city);
+      setPhone(newHosp.phone || "");
+      setEmail(newHosp.email || "");
       toast.success("Hospital created!");
     }
     setSaving(false);

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
+
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,7 +37,7 @@ export default function Auth() {
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
             <Heart className="h-6 w-6 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">CareConnect</h1>
+          <h1 className="text-2xl font-bold text-foreground">H Connect</h1>
           <p className="mt-1 text-sm text-muted-foreground">Multi-Hospital Healthcare Platform</p>
         </div>
 
@@ -107,11 +108,31 @@ function SignupForm() {
   const [fullName, setFullName] = useState("");
   const [selectedRole, setSelectedRole] = useState<AppRole>("patient");
   const [loading, setLoading] = useState(false);
+
+  // Doctor specific fields
+  const [hospitals, setHospitals] = useState<any[]>([]);
+  const [selectedHospital, setSelectedHospital] = useState("");
+  const [specialty, setSpecialty] = useState("");
+
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchHospitals = async () => {
+      const { data } = await supabase.from("hospitals").select("id, name");
+      if (data) setHospitals(data);
+    };
+    fetchHospitals();
+  }, []);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    if (selectedRole === "doctor" && !selectedHospital) {
+      toast.error("Please select a hospital");
+      setLoading(false);
+      return;
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -128,8 +149,28 @@ function SignupForm() {
     }
 
     if (data.user) {
+      // Explicitly handle doctor data
+      if (selectedRole === "doctor") {
+        const { error: docError } = await supabase.from("doctors").insert({
+          user_id: data.user.id,
+          hospital_id: selectedHospital,
+          specialty: specialty || "General"
+        });
+
+        if (docError) {
+          console.error("Error creating doctor profile:", docError);
+          // Verify if it was already created by a trigger, try update if insert failed (though insert should work if trigger doesn't conflict)
+          // If the trigger created it, insert might fail on unique user_id constraint if it exists. 
+          // Let's try upsert to be safe, or just update.
+          await supabase.from("doctors").upsert({
+            user_id: data.user.id,
+            hospital_id: selectedHospital,
+            specialty: specialty || "General"
+          }, { onConflict: 'user_id' });
+        }
+      }
+
       toast.success("Account created! Redirecting...");
-      // Role & patient/doctor records are created automatically by the database trigger
       const map: Record<string, string> = { patient: "/patient", doctor: "/doctor", admin: "/admin" };
       navigate(map[selectedRole] || "/");
     }
@@ -140,7 +181,7 @@ function SignupForm() {
     <Card>
       <CardHeader>
         <CardTitle>Create account</CardTitle>
-        <CardDescription>Join CareConnect today</CardDescription>
+        <CardDescription>Join H Connect today</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSignup} className="space-y-4">
@@ -167,6 +208,27 @@ function SignupForm() {
               </SelectContent>
             </Select>
           </div>
+
+          {selectedRole === "doctor" && (
+            <>
+              <div className="space-y-2">
+                <Label>Hospital</Label>
+                <Select value={selectedHospital} onValueChange={setSelectedHospital}>
+                  <SelectTrigger><SelectValue placeholder="Select Hospital" /></SelectTrigger>
+                  <SelectContent>
+                    {hospitals.map((h) => (
+                      <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Specialty</Label>
+                <Input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="e.g. Cardiology" />
+              </div>
+            </>
+          )}
+
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Creating account..." : "Create Account"}
           </Button>

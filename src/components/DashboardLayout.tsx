@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   Heart, LogOut, Menu, X,
-  LayoutDashboard, Calendar, FileText, User, Stethoscope, Users, Building2, Receipt, ClipboardList,
+  LayoutDashboard, Calendar, FileText, User, Stethoscope, Users, Building2, Receipt, ClipboardList, Mail,
 } from "lucide-react";
 
 interface NavItem {
@@ -25,6 +25,7 @@ const navItems: Record<string, NavItem[]> = {
     { label: "Dashboard", href: "/doctor", icon: LayoutDashboard },
     { label: "Consultations", href: "/doctor/consult", icon: Stethoscope },
     { label: "Patient Records", href: "/doctor/records", icon: ClipboardList },
+    { label: "Hospital Requests", href: "/doctor/requests", icon: Mail },
   ],
   admin: [
     { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -56,7 +57,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       )}>
         <div className="flex h-16 items-center gap-2 border-b px-4">
           <Heart className="h-6 w-6 text-primary" />
-          <span className="text-lg font-bold">CareConnect</span>
+          <span className="text-lg font-bold">H Connect</span>
           <Button variant="ghost" size="icon" className="ml-auto md:hidden" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />
           </Button>
