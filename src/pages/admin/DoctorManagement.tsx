@@ -1,34 +1,16 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { DashboardLayout } from "@/components/DashboardLayout";
+import { useAuth } from "@/contexts/AuthContext";
+import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit, UserPlus, Clock } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2 } from "lucide-react";
 
 export default function DoctorManagement() {
   const { user } = useAuth();
   const [doctors, setDoctors] = useState<any[]>([]);
-  const [hospitalId, setHospitalId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
-  const [editingDoctor, setEditingDoctor] = useState<any>(null);
-
-  // Form state
-  const [specialty, setSpecialty] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  // Request state
-  const [availableDoctors, setAvailableDoctors] = useState<any[]>([]);
-  const [selectedDoctorId, setSelectedDoctorId] = useState("");
-  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [hospitalId, setHospitalId] = useState<string | null>(null);
 
   const fetchDoctors = async (hId: string) => {
     const { data, error } = await supabase
@@ -38,48 +20,17 @@ export default function DoctorManagement() {
 
     if (error) {
       console.error("Error fetching doctors:", error);
-    }
-    console.log("Fetched doctors for hospital:", data);
-    setDoctors(data || []);
-  };
-
-  const fetchAvailableDoctors = async (hId: string) => {
-    // Get all doctors first, then filter client-side
-    const { data, error } = await supabase
-      .from("doctors")
-      .select("*, profiles:user_id(full_name, phone)");
-
-    if (error) {
-      console.error("Error fetching available doctors:", error);
       toast.error("Failed to load doctors");
-      setAvailableDoctors([]);
-      return;
+    } else {
+      console.log("Fetched doctors for hospital:", data);
+      setDoctors(data || []);
     }
-
-    // Filter out doctors already in this hospital
-    const filtered = (data || []).filter(d => d.hospital_id !== hId);
-    console.log("All doctors:", data);
-    console.log("Available doctors (not in this hospital):", filtered);
-    setAvailableDoctors(filtered);
-  };
-
-  const fetchPendingRequests = async (hId: string) => {
-    const { data, error } = await supabase
-      .from("doctor_requests")
-      .select("*, doctors(*, profiles:user_id(full_name))")
-      .eq("hospital_id", hId)
-      .eq("status", "pending");
-
-    if (error) {
-      console.error("Error fetching pending requests:", error);
-    }
-    setPendingRequests(data || []);
   };
 
   useEffect(() => {
     if (!user) return;
     const fetch = async () => {
-      // Admin users should look up their hospital from the hospitals table, not doctors table
+      // Admin users look up their hospital from the hospitals table
       const { data: hospital, error: hospitalError } = await supabase
         .from("hospitals")
         .select("id")
@@ -96,81 +47,38 @@ export default function DoctorManagement() {
       if (hospital?.id) {
         console.log("Found hospital for admin:", hospital.id);
         setHospitalId(hospital.id);
-        await Promise.all([
-          fetchDoctors(hospital.id),
-          fetchAvailableDoctors(hospital.id),
-          fetchPendingRequests(hospital.id)
-        ]);
+        await fetchDoctors(hospital.id);
       } else {
         console.warn("No hospital found for this admin user");
-        toast.error("No hospital associated with this account");
+        toast.error("No hospital associated with this account. Please set up your hospital first.");
       }
       setLoading(false);
     };
     fetch();
   }, [user]);
 
-  const handleEditSpecialty = async () => {
-    if (!editingDoctor) return;
-    setSaving(true);
-    await supabase.from("doctors").update({ specialty }).eq("id", editingDoctor.id);
-    toast.success("Doctor updated!");
-    if (hospitalId) await fetchDoctors(hospitalId);
-    setDialogOpen(false);
-    setEditingDoctor(null);
-    setSaving(false);
-  };
-
-  const handleDelete = async (doctorId: string) => {
-    if (!confirm("Remove this doctor from the hospital?")) return;
-    await supabase.from("doctors").update({ hospital_id: null }).eq("id", doctorId);
-    toast.success("Doctor removed from hospital.");
-    if (hospitalId) {
-      await fetchDoctors(hospitalId);
-      await fetchAvailableDoctors(hospitalId);
-    }
-  };
-
-  const handleSendRequest = async () => {
-    if (!selectedDoctorId || !hospitalId) return;
-    setSaving(true);
-
-    const { error } = await supabase.from("doctor_requests").insert({
-      hospital_id: hospitalId,
-      doctor_id: selectedDoctorId,
-      status: "pending"
-    });
-
-    if (error) {
-      if (error.code === "23505") {
-        toast.error("Request already sent to this doctor");
-      } else {
-        toast.error(error.message);
-      }
-    } else {
-      toast.success("Request sent to doctor!");
-      setRequestDialogOpen(false);
-      setSelectedDoctorId("");
-      await fetchPendingRequests(hospitalId);
-    }
-    setSaving(false);
-  };
-
-  const handleCancelRequest = async (requestId: string) => {
-    if (!confirm("Cancel this request?")) return;
-    await supabase.from("doctor_requests").delete().eq("id", requestId);
-    toast.success("Request cancelled");
-    if (hospitalId) await fetchPendingRequests(hospitalId);
-  };
-
-  if (loading) return <DashboardLayout><div className="flex items-center justify-center py-20"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div></DashboardLayout>;
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (!hospitalId) {
     return (
       <DashboardLayout>
         <div className="space-y-6">
           <h1 className="text-2xl font-bold">Doctor Management</h1>
-          <p className="text-muted-foreground">You are not assigned to a hospital. Please set up your hospital first.</p>
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-muted-foreground">
+                You are not assigned to a hospital. Please set up your hospital first.
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </DashboardLayout>
     );
@@ -181,119 +89,42 @@ export default function DoctorManagement() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Doctor Management</h1>
-          <Dialog open={requestDialogOpen} onOpenChange={setRequestDialogOpen}>
-            <DialogTrigger asChild>
-              <Button><UserPlus className="mr-2 h-4 w-4" />Send Request to Doctor</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Send Request to Doctor</DialogTitle></DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Select Doctor</Label>
-                  {availableDoctors.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-2">
-                      No doctors available to invite. All doctors are already assigned to this hospital or no doctor accounts exist yet.
-                    </p>
-                  ) : (
-                    <Select value={selectedDoctorId} onValueChange={setSelectedDoctorId}>
-                      <SelectTrigger><SelectValue placeholder="Choose a doctor" /></SelectTrigger>
-                      <SelectContent>
-                        {availableDoctors.map((d) => (
-                          <SelectItem key={d.id} value={d.id}>
-                            {d.profiles?.full_name || "Doctor"} - {d.specialty || "General"}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-                <Button onClick={handleSendRequest} disabled={saving || !selectedDoctorId || availableDoctors.length === 0} className="w-full">
-                  {saving ? "Sending..." : "Send Request"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
         </div>
 
-        <Tabs defaultValue="current" className="w-full">
-          <TabsList>
-            <TabsTrigger value="current">Current Doctors</TabsTrigger>
-            <TabsTrigger value="pending">Pending Requests ({pendingRequests.length})</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="current" className="mt-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Doctors in Your Hospital</CardTitle>
+          </CardHeader>
+          <CardContent>
             {doctors.length === 0 ? (
-              <Card><CardContent className="py-8 text-center text-muted-foreground">No doctors assigned to this hospital yet.</CardContent></Card>
+              <p className="text-muted-foreground">
+                No doctors assigned to this hospital yet. Doctors can join your hospital by selecting it during signup.
+              </p>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {doctors.map((d) => (
-                  <Card key={d.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-medium">{d.profiles?.full_name || "Doctor"}</p>
-                          <p className="text-sm text-muted-foreground">{d.specialty || "General"}</p>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button size="icon" variant="ghost" onClick={() => {
-                            setEditingDoctor(d);
-                            setSpecialty(d.specialty || "");
-                            setDialogOpen(true);
-                          }}><Edit className="h-4 w-4" /></Button>
-                          <Button size="icon" variant="ghost" onClick={() => handleDelete(d.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                        </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {doctors.map((doctor) => (
+                  <Card key={doctor.id}>
+                    <CardContent className="pt-6">
+                      <div className="space-y-2">
+                        <h3 className="font-semibold">
+                          {doctor.profiles?.full_name || "Doctor"}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Specialty: {doctor.specialty || "General"}
+                        </p>
+                        {doctor.profiles?.phone && (
+                          <p className="text-sm text-muted-foreground">
+                            Phone: {doctor.profiles.phone}
+                          </p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
             )}
-          </TabsContent>
-
-          <TabsContent value="pending" className="mt-6">
-            {pendingRequests.length === 0 ? (
-              <Card><CardContent className="py-8 text-center text-muted-foreground">No pending requests.</CardContent></Card>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {pendingRequests.map((req) => (
-                  <Card key={req.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-2">
-                          <Clock className="h-4 w-4 mt-1 text-muted-foreground" />
-                          <div>
-                            <p className="font-medium">{req.doctors?.profiles?.full_name || "Doctor"}</p>
-                            <p className="text-sm text-muted-foreground">{req.doctors?.specialty || "General"}</p>
-                            <p className="text-xs text-muted-foreground mt-1">Pending</p>
-                          </div>
-                        </div>
-                        <Button size="icon" variant="ghost" onClick={() => handleCancelRequest(req.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-
-        {/* Edit Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Edit Doctor</DialogTitle></DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Specialty</Label>
-                <Input value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="e.g., Cardiology" />
-              </div>
-              <Button onClick={handleEditSpecialty} disabled={saving} className="w-full">
-                {saving ? "Saving..." : "Update"}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );

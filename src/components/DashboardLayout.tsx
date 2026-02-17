@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   Heart, LogOut, Menu, X,
-  LayoutDashboard, Calendar, FileText, User, Stethoscope, Users, Building2, Receipt, ClipboardList, Mail,
+  LayoutDashboard, Calendar, FileText, User, Stethoscope, Users, Building2, Receipt, ClipboardList,
 } from "lucide-react";
 
 interface NavItem {
@@ -25,7 +25,6 @@ const navItems: Record<string, NavItem[]> = {
     { label: "Dashboard", href: "/doctor", icon: LayoutDashboard },
     { label: "Consultations", href: "/doctor/consult", icon: Stethoscope },
     { label: "Patient Records", href: "/doctor/records", icon: ClipboardList },
-    { label: "Hospital Requests", href: "/doctor/requests", icon: Mail },
   ],
   admin: [
     { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
