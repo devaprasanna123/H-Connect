@@ -44,16 +44,23 @@ export default function DoctorManagement() {
   };
 
   const fetchAvailableDoctors = async (hId: string) => {
-    // Get doctors not in this hospital or without a hospital
+    // Get all doctors first, then filter client-side
     const { data, error } = await supabase
       .from("doctors")
-      .select("*, profiles:user_id(full_name, phone)")
-      .or(`hospital_id.neq.${hId},hospital_id.is.null`);
+      .select("*, profiles:user_id(full_name, phone)");
 
     if (error) {
       console.error("Error fetching available doctors:", error);
+      toast.error("Failed to load doctors");
+      setAvailableDoctors([]);
+      return;
     }
-    setAvailableDoctors(data || []);
+
+    // Filter out doctors already in this hospital
+    const filtered = (data || []).filter(d => d.hospital_id !== hId);
+    console.log("All doctors:", data);
+    console.log("Available doctors (not in this hospital):", filtered);
+    setAvailableDoctors(filtered);
   };
 
   const fetchPendingRequests = async (hId: string) => {
@@ -166,18 +173,24 @@ export default function DoctorManagement() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Select Doctor</Label>
-                  <Select value={selectedDoctorId} onValueChange={setSelectedDoctorId}>
-                    <SelectTrigger><SelectValue placeholder="Choose a doctor" /></SelectTrigger>
-                    <SelectContent>
-                      {availableDoctors.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.profiles?.full_name || "Doctor"} - {d.specialty || "General"}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {availableDoctors.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">
+                      No doctors available to invite. All doctors are already assigned to this hospital or no doctor accounts exist yet.
+                    </p>
+                  ) : (
+                    <Select value={selectedDoctorId} onValueChange={setSelectedDoctorId}>
+                      <SelectTrigger><SelectValue placeholder="Choose a doctor" /></SelectTrigger>
+                      <SelectContent>
+                        {availableDoctors.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.profiles?.full_name || "Doctor"} - {d.specialty || "General"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
-                <Button onClick={handleSendRequest} disabled={saving || !selectedDoctorId} className="w-full">
+                <Button onClick={handleSendRequest} disabled={saving || !selectedDoctorId || availableDoctors.length === 0} className="w-full">
                   {saving ? "Sending..." : "Send Request"}
                 </Button>
               </div>
