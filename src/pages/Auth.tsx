@@ -107,6 +107,7 @@ function SignupForm() {
   const [fullName, setFullName] = useState("");
   const [selectedRole, setSelectedRole] = useState<AppRole>("patient");
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,8 +117,7 @@ function SignupForm() {
       email,
       password,
       options: {
-        data: { full_name: fullName },
-        emailRedirectTo: window.location.origin,
+        data: { full_name: fullName, role: selectedRole },
       },
     });
 
@@ -128,18 +128,10 @@ function SignupForm() {
     }
 
     if (data.user) {
-      // Insert role
-      const { error: roleError } = await supabase.from("user_roles").insert({ user_id: data.user.id, role: selectedRole });
-      if (roleError) toast.error("Failed to assign role: " + roleError.message);
-
-      // Create role-specific record
-      if (selectedRole === "patient") {
-        await supabase.from("patients").insert({ user_id: data.user.id });
-      } else if (selectedRole === "doctor") {
-        await supabase.from("doctors").insert({ user_id: data.user.id });
-      }
-
-      toast.success("Account created! Please check your email to verify.");
+      toast.success("Account created! Redirecting...");
+      // Role & patient/doctor records are created automatically by the database trigger
+      const map: Record<string, string> = { patient: "/patient", doctor: "/doctor", admin: "/admin" };
+      navigate(map[selectedRole] || "/");
     }
     setLoading(false);
   };
