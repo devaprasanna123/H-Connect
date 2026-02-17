@@ -79,14 +79,31 @@ export default function DoctorManagement() {
   useEffect(() => {
     if (!user) return;
     const fetch = async () => {
-      const { data: doc } = await supabase.from("doctors").select("hospital_id").eq("user_id", user.id).maybeSingle();
-      if (doc?.hospital_id) {
-        setHospitalId(doc.hospital_id);
+      // Admin users should look up their hospital from the hospitals table, not doctors table
+      const { data: hospital, error: hospitalError } = await supabase
+        .from("hospitals")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (hospitalError) {
+        console.error("Error fetching hospital:", hospitalError);
+        toast.error("Failed to load hospital information");
+        setLoading(false);
+        return;
+      }
+
+      if (hospital?.id) {
+        console.log("Found hospital for admin:", hospital.id);
+        setHospitalId(hospital.id);
         await Promise.all([
-          fetchDoctors(doc.hospital_id),
-          fetchAvailableDoctors(doc.hospital_id),
-          fetchPendingRequests(doc.hospital_id)
+          fetchDoctors(hospital.id),
+          fetchAvailableDoctors(hospital.id),
+          fetchPendingRequests(hospital.id)
         ]);
+      } else {
+        console.warn("No hospital found for this admin user");
+        toast.error("No hospital associated with this account");
       }
       setLoading(false);
     };
