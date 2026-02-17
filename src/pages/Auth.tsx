@@ -102,9 +102,12 @@ function LoginForm() {
   );
 }
 
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+
 function SignupForm() {
+  const [step, setStep] = useState<'details' | 'otp'>('details');
+  const [otp, setOtp] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [selectedRole, setSelectedRole] = useState<AppRole>("patient");
   const [loading, setLoading] = useState(false);
@@ -123,14 +126,13 @@ function SignupForm() {
         console.error("Error fetching hospitals:", error);
       }
       if (data) {
-        console.log("Fetched hospitals:", data);
         setHospitals(data);
       }
     };
     fetchHospitals();
   }, []);
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
@@ -140,13 +142,31 @@ function SignupForm() {
       return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signInWithOtp({
       email,
-      password,
       options: {
         data: { full_name: fullName, role: selectedRole },
-        emailRedirectTo: window.location.origin,
+        shouldCreateUser: true,
       },
+    });
+
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("OTP sent to your email!");
+      setStep("otp");
+    }
+    setLoading(false);
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token: otp,
+      type: "email",
     });
 
     if (error) {
@@ -155,34 +175,65 @@ function SignupForm() {
       return;
     }
 
-    if (data.user) {
+    if (data.session) {
       // Explicitly handle doctor data
       if (selectedRole === "doctor") {
         const { error: docError } = await supabase.from("doctors").insert({
-          user_id: data.user.id,
+          user_id: data.session.user.id,
           hospital_id: selectedHospital,
           specialty: specialty || "General"
         });
 
         if (docError) {
           console.error("Error creating doctor profile:", docError);
-          // Verify if it was already created by a trigger, try update if insert failed (though insert should work if trigger doesn't conflict)
-          // If the trigger created it, insert might fail on unique user_id constraint if it exists. 
-          // Let's try upsert to be safe, or just update.
+          // Try upsert if insert failed (e.g. if trigger already created it)
           await supabase.from("doctors").upsert({
-            user_id: data.user.id,
+            user_id: data.session.user.id,
             hospital_id: selectedHospital,
             specialty: specialty || "General"
           }, { onConflict: 'user_id' });
         }
       }
 
-      toast.success("Account created! Redirecting...");
+      toast.success("Account verified! Redirecting...");
       const map: Record<string, string> = { patient: "/patient", doctor: "/doctor", admin: "/admin" };
       navigate(map[selectedRole] || "/");
     }
     setLoading(false);
   };
+
+  if (step === "otp") {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Enter OTP</CardTitle>
+          <CardDescription>We sent a code to {email}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleVerifyOtp} className="space-y-4">
+            <div className="flex justify-center">
+              <InputOTP maxLength={6} value={otp} onChange={(value) => setOtp(value)}>
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+            <Button type="submit" className="w-full" disabled={loading || otp.length < 6}>
+              {loading ? "Verifying..." : "Verify OTP"}
+            </Button>
+            <Button type="button" variant="ghost" className="w-full" onClick={() => setStep("details")} disabled={loading}>
+              Back to details
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -191,7 +242,7 @@ function SignupForm() {
         <CardDescription>Join H Connect today</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSignup} className="space-y-4">
+        <form onSubmit={handleSendOtp} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="signup-name">Full Name</Label>
             <Input id="signup-name" value={fullName} onChange={(e) => setFullName(e.target.value)} required placeholder="Dr. Jane Smith" />
@@ -200,10 +251,7 @@ function SignupForm() {
             <Label htmlFor="signup-email">Email</Label>
             <Input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="you@example.com" />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="signup-password">Password</Label>
-            <Input id="signup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} placeholder="••••••••" />
-          </div>
+          {/* Password field removed */}
           <div className="space-y-2">
             <Label>Role</Label>
             <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as AppRole)}>
@@ -237,7 +285,7 @@ function SignupForm() {
           )}
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Creating account..." : "Create Account"}
+            {loading ? "Sending OTP..." : "Send OTP"}
           </Button>
         </form>
       </CardContent>
