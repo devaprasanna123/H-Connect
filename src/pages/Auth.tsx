@@ -118,8 +118,14 @@ function SignupForm() {
 
   useEffect(() => {
     const fetchHospitals = async () => {
-      const { data } = await supabase.from("hospitals").select("id, name");
-      if (data) setHospitals(data);
+      const { data, error } = await supabase.from("hospitals").select("id, name");
+      if (error) {
+        console.error("Error fetching hospitals:", error);
+      }
+      if (data) {
+        console.log("Fetched hospitals:", data);
+        setHospitals(data);
+      }
     };
     fetchHospitals();
   }, []);

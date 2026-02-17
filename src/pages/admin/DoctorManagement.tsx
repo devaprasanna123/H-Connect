@@ -31,29 +31,41 @@ export default function DoctorManagement() {
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
 
   const fetchDoctors = async (hId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("doctors")
       .select("*, profiles:user_id(full_name, phone)")
       .eq("hospital_id", hId);
+
+    if (error) {
+      console.error("Error fetching doctors:", error);
+    }
+    console.log("Fetched doctors for hospital:", data);
     setDoctors(data || []);
   };
 
   const fetchAvailableDoctors = async (hId: string) => {
-    // Get doctors not in this hospital
-    const { data } = await supabase
+    // Get doctors not in this hospital or without a hospital
+    const { data, error } = await supabase
       .from("doctors")
       .select("*, profiles:user_id(full_name, phone)")
-      .neq("hospital_id", hId)
-      .or(`hospital_id.is.null`);
+      .or(`hospital_id.neq.${hId},hospital_id.is.null`);
+
+    if (error) {
+      console.error("Error fetching available doctors:", error);
+    }
     setAvailableDoctors(data || []);
   };
 
   const fetchPendingRequests = async (hId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("doctor_requests")
       .select("*, doctors(*, profiles:user_id(full_name))")
       .eq("hospital_id", hId)
       .eq("status", "pending");
+
+    if (error) {
+      console.error("Error fetching pending requests:", error);
+    }
     setPendingRequests(data || []);
   };
 
