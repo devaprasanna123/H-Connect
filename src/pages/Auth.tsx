@@ -145,6 +145,7 @@ function SignupForm() {
       password,
       options: {
         data: { full_name: fullName, role: selectedRole },
+        emailRedirectTo: window.location.origin,
       },
     });
 
