@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Navigate } from "react-router-dom";
 import { Heart } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
 
@@ -102,7 +103,7 @@ function LoginForm() {
   );
 }
 
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+
 
 function SignupForm() {
   const [step, setStep] = useState<'details' | 'otp'>('details');
