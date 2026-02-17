@@ -148,6 +148,7 @@ function SignupForm() {
       options: {
         data: { full_name: fullName, role: selectedRole },
         shouldCreateUser: true,
+        emailRedirectTo: window.location.origin,
       },
     });
 
