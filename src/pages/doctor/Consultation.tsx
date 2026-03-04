@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Plus, Trash2, CheckCircle } from "lucide-react";
+import { HandwrittenPrescriptionUpload } from "@/components/HandwrittenPrescriptionUpload";
+import type { ExtractedMedicine } from "@/lib/prescriptionOcr";
 
 interface PrescriptionEntry {
   medicine_name: string;
@@ -30,6 +32,10 @@ export default function ConsultationPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Handwritten prescription state
+  const [prescriptionImage, setPrescriptionImage] = useState<File | null>(null);
+  const [prescriptionRawText, setPrescriptionRawText] = useState("");
 
   useEffect(() => {
     if (!appointmentId || !user) { setLoading(false); return; }
@@ -57,6 +63,34 @@ export default function ConsultationPage() {
     setPrescriptions(updated);
   };
 
+  const handleImageChange = (file: File | null) => {
+    setPrescriptionImage(file);
+    if (!file) {
+      setPrescriptionRawText("");
+    }
+  };
+
+  const handleTextExtracted = (medicines: ExtractedMedicine[], rawText: string) => {
+    setPrescriptionRawText(rawText);
+
+    if (medicines.length > 0) {
+      // Filter out empty existing entries
+      const existingNonEmpty = prescriptions.filter(
+        (p) => p.medicine_name.trim() !== ""
+      );
+      // Merge: keep existing non-empty entries, add OCR-extracted ones
+      const merged = [
+        ...existingNonEmpty,
+        ...medicines.map((m) => ({
+          medicine_name: m.medicine_name,
+          dosage: m.dosage,
+          duration: m.duration,
+        })),
+      ];
+      setPrescriptions(merged.length > 0 ? merged : [{ medicine_name: "", dosage: "", duration: "" }]);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!user || !appointment) return;
     setSaving(true);
@@ -64,12 +98,41 @@ export default function ConsultationPage() {
     const { data: doctor } = await supabase.from("doctors").select("id").eq("user_id", user.id).maybeSingle();
     if (!doctor) { toast.error("Doctor record not found"); setSaving(false); return; }
 
+    // Upload prescription image if available
+    let prescriptionImageUrl = "";
+    if (prescriptionImage) {
+      const fileExt = prescriptionImage.name.split(".").pop() || "jpg";
+      const fileName = `${appointment.id}_${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("prescription-images")
+        .upload(fileName, prescriptionImage, {
+          contentType: prescriptionImage.type,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        toast.error("Failed to upload prescription image: " + uploadError.message);
+        setSaving(false);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("prescription-images")
+        .getPublicUrl(fileName);
+
+      prescriptionImageUrl = urlData.publicUrl;
+    }
+
     // Create consultation
     const { data: consultation, error: cErr } = await supabase.from("consultations").insert({
       appointment_id: appointment.id,
       doctor_id: doctor.id,
       patient_id: appointment.patient_id,
       observations,
+      prescription_image_url: prescriptionImageUrl || null,
+      prescription_text: prescriptionRawText || null,
     }).select().single();
 
     if (cErr) { toast.error("Failed: " + cErr.message); setSaving(false); return; }
@@ -144,6 +207,12 @@ export default function ConsultationPage() {
             <Textarea value={observations} onChange={(e) => setObservations(e.target.value)} placeholder="Enter clinical observations..." rows={4} />
           </CardContent>
         </Card>
+
+        {/* Handwritten Prescription Upload */}
+        <HandwrittenPrescriptionUpload
+          onImageChange={handleImageChange}
+          onTextExtracted={handleTextExtracted}
+        />
 
         {/* Prescriptions */}
         <Card>

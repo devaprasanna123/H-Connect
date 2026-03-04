@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
-import { Search } from "lucide-react";
+import { Search, FileText, Image as ImageIcon } from "lucide-react";
 
 export default function PatientRecords() {
   const { user } = useAuth();
@@ -96,6 +96,43 @@ export default function PatientRecords() {
                       </CardHeader>
                       <CardContent className="text-sm space-y-2">
                         {c.observations && <p>{c.observations}</p>}
+
+                        {/* Handwritten Prescription */}
+                        {(c.prescription_image_url || c.prescription_text) && (
+                          <div className="rounded-lg border bg-muted/20 p-2 space-y-2">
+                            <p className="text-xs font-medium flex items-center gap-1">
+                              <FileText className="h-3 w-3" />
+                              Handwritten Prescription
+                            </p>
+
+                            {c.prescription_image_url && (
+                              <a
+                                href={c.prescription_image_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="group inline-block"
+                              >
+                                <div className="relative overflow-hidden rounded border transition-all group-hover:shadow-md">
+                                  <img
+                                    src={c.prescription_image_url}
+                                    alt="Handwritten prescription"
+                                    className="max-h-32 w-auto object-contain"
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all group-hover:bg-black/10">
+                                    <ImageIcon className="h-6 w-6 text-white opacity-0 transition-opacity group-hover:opacity-70" />
+                                  </div>
+                                </div>
+                              </a>
+                            )}
+
+                            {c.prescription_text && (
+                              <p className="whitespace-pre-wrap text-xs bg-background rounded p-1.5 border">
+                                {c.prescription_text}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
                         {c.prescriptions?.length > 0 && (
                           <div className="text-xs space-y-1">
                             {c.prescriptions.map((rx: any) => (

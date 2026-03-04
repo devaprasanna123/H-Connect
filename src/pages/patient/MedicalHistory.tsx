@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
+import { FileText, Image as ImageIcon } from "lucide-react";
 
 export default function MedicalHistory() {
   const { user } = useAuth();
@@ -58,6 +59,49 @@ export default function MedicalHistory() {
                       <p className="text-sm text-muted-foreground">{c.observations}</p>
                     </div>
                   )}
+
+                  {/* Handwritten Prescription */}
+                  {(c.prescription_image_url || c.prescription_text) && (
+                    <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Handwritten Prescription
+                      </p>
+
+                      {c.prescription_image_url && (
+                        <div>
+                          <a
+                            href={c.prescription_image_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group inline-block"
+                          >
+                            <div className="relative overflow-hidden rounded-lg border transition-all group-hover:shadow-md">
+                              <img
+                                src={c.prescription_image_url}
+                                alt="Handwritten prescription"
+                                className="max-h-48 w-auto object-contain transition-transform group-hover:scale-105"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all group-hover:bg-black/10">
+                                <ImageIcon className="h-8 w-8 text-white opacity-0 transition-opacity group-hover:opacity-70" />
+                              </div>
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">Click to view full size</p>
+                          </a>
+                        </div>
+                      )}
+
+                      {c.prescription_text && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Extracted Text:</p>
+                          <p className="whitespace-pre-wrap text-sm bg-background rounded p-2 border">
+                            {c.prescription_text}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {c.prescriptions && c.prescriptions.length > 0 && (
                     <div>
                       <p className="text-sm font-medium mb-2">Prescriptions</p>
